@@ -1,0 +1,85 @@
+#!/bin/sh
+#
+# Copyright (C) 2013 Nikos Mavrogiannopoulos
+#
+# This file is part of ocserv.
+#
+# ocserv is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 2 of the License, or (at
+# your option) any later version.
+#
+# ocserv is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with GnuTLS; if not, write to the Free Software Foundation,
+# Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+
+SERV="${SERV:-../src/ocserv}"
+srcdir=${srcdir:-.}
+PORT=4446
+
+. `dirname $0`/common.sh
+
+echo "Testing ocserv with certificates... "
+
+echo crl_next_update = 999 >crl.tmpl
+echo crl_number = 1 >>crl.tmpl
+
+rm -f crl.pem
+certtool --generate-crl --load-ca-privkey ca-key.pem --load-ca-certificate ca.pem \
+	--outfile crl.pem --template crl.tmpl >/dev/null 2>&1
+if test $? != 0;then
+	kill $PID
+	exit 77
+fi
+
+launch_simple_server -d 1 -f -c test3.config
+PID=$!
+
+wait_server $PID
+
+echo -n "Connecting to obtain cookie (without certificate)... "
+( openconnect -q localhost:$PORT --servercert=d66b507ae074d03b02eafca40d35f87dd81049d3 --cookieonly </dev/null >/dev/null 2>&1 ) &&
+	fail $PID "Connected without certificate!"
+
+echo ok
+
+echo -n "Connecting to obtain cookie (with certificate)... "
+( openconnect -q localhost:$PORT --sslkey ./user-key.pem -c ./user-cert.pem --servercert=d66b507ae074d03b02eafca40d35f87dd81049d3 --cookieonly </dev/null >/dev/null 2>&1 ) ||
+	fail $PID "Could not connect with certificate!"
+
+echo ok
+
+
+#revoke the certificate
+certtool --generate-crl --load-ca-privkey ca-key.pem --load-ca-certificate ca.pem \
+	--load-certificate ./user-cert.pem --outfile crl.pem --template crl.tmpl >/dev/null 2>&1
+if test $? != 0;then
+	kill $PID
+	exit 77
+fi
+
+echo "Reloading server"
+kill -HUP $PID
+sleep 5
+
+echo -n "Connecting to obtain cookie (with revoked certificate)... "
+( openconnect -q localhost:$PORT --sslkey ./user-key.pem -c ./user-cert.pem --servercert=d66b507ae074d03b02eafca40d35f87dd81049d3 --cookieonly </dev/null >/dev/null 2>&1 ) &&
+	fail $PID "Connected with revoked certificate!"
+
+echo ok
+
+#echo "Normal connection... "
+#( echo "test" | openconnect -q localhost:$PORT -u test --servercert=d66b507ae074d03b02eafca40d35f87dd81049d3 --script=/bin/true ) ||
+#	fail $PID "Could not connect to server"
+
+rm -f crl.pem crl.tmpl
+
+kill $PID
+wait
+
+exit 0

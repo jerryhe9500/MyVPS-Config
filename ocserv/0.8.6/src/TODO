@@ -1,0 +1,12 @@
+proc access:
+	convert to hash tables with
+		username | (login),
+		sid | (login),
+		dtls_session_id | (udp),
+
+search for user instead 
+		cookie | (login)
+
+		status || (cleanup),
+		pid | (cleanup)
+	as indexes
