@@ -21,7 +21,7 @@ cp server-cert.pem /etc/ssl/certs
 cp server-key.pem /etc/ssl/private
 cd ../
 #Creat Users
-ocpasswd -c /etc/ocserv/ocpasswd jerryhe9500
+ocpasswd -c /root/AeroFS/ocpasswd jerryhe9500
 #Config iptables
 # MTU
 iptables -I FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
