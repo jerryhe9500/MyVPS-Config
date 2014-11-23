@@ -30,10 +30,10 @@ iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
 # Enable IPv4 forward
 sysctl -w net.ipv4.ip_forward=1
 # Enable port 443
-iptables -I INPUT -p tcp --dport 443 -j ACCEPT
-iptables -I OUTPUT -p tcp --dport 443 -j ACCEPT
-iptables -I INPUT -p udp --dport 443 -j ACCEPT
-iptables -I OUTPUT -p udp --dport 443 -j ACCEPT
+iptables -I INPUT -p tcp --dport 580 -j ACCEPT
+iptables -I OUTPUT -p tcp --dport 580 -j ACCEPT
+iptables -I INPUT -p udp --dport 580 -j ACCEPT
+iptables -I OUTPUT -p udp --dport 580 -j ACCEPT
 #Config supervisor
 cd Config
 cp ./supervisor/ocserv.conf /etc/supervisor/conf.d
