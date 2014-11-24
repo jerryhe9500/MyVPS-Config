@@ -1,9 +1,9 @@
 #Install Essential Packages
 apt-get update
 apt-get upgrade
-apt-get install build-essential libwrap0-dev libpam0g-dev libdbus-1-dev libreadline-dev libnl-route-3-dev libprotobuf-c0-dev libpcl1-dev libopts25-dev autogen libgnutls28 libgnutls28-dev libseccomp-dev gnutls-bin
+apt-get install build-essential libwrap0-dev libpam0g-dev libdbus-1-dev libreadline-dev libnl-route-3-dev libprotobuf-c0-dev libpcl1-dev libopts25-dev autogen libgnutls28 libgnutls28-dev libseccomp-dev gnutls-bin automake
 #Install ocserv
-cd 0.8.6
+cd 0.8.8
 ./configure
 make
 make install
