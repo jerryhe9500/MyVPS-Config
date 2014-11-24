@@ -10,7 +10,7 @@ make install
 cd ../
 #Config ocserv
 mkdir /etc/ocserv
-cp ./Config/ocserv.conf /etc/ocserv
+cp ./Config/ocserv.conf /root/AeroFS
 #Build Certs
 cd CA
 certtool --generate-privkey --outfile ca-key.pem
