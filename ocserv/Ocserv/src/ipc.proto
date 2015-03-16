@@ -1,0 +1,273 @@
+/* === Authentication ===
+ 
+  main                 sec-mod                 worker
+   |                      |                      |
+   |                      |  <--SEC_AUTH_INIT--- |
+   |                      |  ---SEC_AUTH_REP---> |
+   |                      |  <--SEC_AUTH_CONT--- |
+   |                      |         .            |
+   |                      |         .            |
+   |                      |         .            |
+   |                      |  ----SEC_AUTH_REP--> |
+   |                      |                      |
+   | <----------AUTH_COOKIE_REQ----------------- |
+   |                      |                      |
+   | ---SESSION_OPEN----> |                      |
+   | <--SESSION_REPLY---- |                      |
+   |                      |                      |
+   | -----------------AUTH_REP-----------------> |
+   |                      |                      |
+   |                      |
+   |                      |            (disconnect)
+   | ---SESSION_CLOSE---> |
+   | <-- CLI_STATS ------ |
+
+ */
+
+
+/*
+ * == Auth in main process (cookie auth only) ==
+ *
+ *   main                              worker
+ *                      <------     AUTH_COOKIE_REQ
+ * AUTH_REP(OK/FAILED)  ------>
+ *  +user config
+ *
+ */
+
+enum AUTH_REP {
+	OK = 1;
+	MSG = 2;
+	FAILED = 3;
+}
+
+/* AUTH_COOKIE_REQ */
+message auth_cookie_request_msg
+{
+	required bytes cookie = 1;
+}
+
+/* AUTH_REP */
+message auth_reply_msg
+{
+	required AUTH_REP reply = 1;
+	optional bytes session_id = 3;
+	optional string vname = 4;
+	optional string user_name = 5;
+	optional string group_name = 25;
+	optional string msg = 6;
+
+	/* the ips of the tun device */
+	optional string ipv4 = 7;
+	optional string ipv6 = 8;
+	optional string ipv4_local = 9;
+	optional string ipv6_local = 10;
+
+	/* additional config */
+	optional string ipv4_netmask = 15;
+	optional string ipv6_netmask = 16;
+	optional uint32 ipv6_prefix = 17;
+	optional uint32 rx_per_sec = 18;
+	optional uint32 tx_per_sec = 19;
+	optional uint32 net_priority = 20;
+	repeated string routes = 21;
+	repeated string dns = 22;
+	repeated string nbns = 23;
+	optional bool no_udp = 24 [default = false];
+	optional string xml_config_file = 26;
+	optional string ipv4_network = 27;
+	optional string ipv6_network = 28;
+	repeated string no_routes = 29;
+}
+
+/* RESUME_FETCH_REQ + RESUME_DELETE_REQ */
+message session_resume_fetch_msg
+{
+	required bytes session_id = 1;
+}
+
+/* RESUME_STORE_REQ */
+message session_resume_store_req_msg
+{
+	required bytes session_id = 1;
+	required bytes session_data = 2;
+}
+
+/* RESUME_FETCH_REP */
+message session_resume_reply_msg
+{
+	enum RESUME_REP {
+		OK = 1;
+		FAILED = 2;
+	}
+	required RESUME_REP reply = 1;
+	optional bytes session_data = 2;
+}
+
+/* TUN_MTU */
+message tun_mtu_msg
+{
+	required uint32 mtu = 1;
+}
+
+message cli_stats_msg
+{
+	required uint64 bytes_in = 1;
+	required uint64 bytes_out = 2;
+	optional bytes sid = 3;
+	required uint32 uptime = 4;
+	optional string remote_ip = 5;
+	optional string ipv4 = 6;
+	optional string ipv6 = 7;
+}
+
+/* UDP_FD */
+message udp_fd_msg
+{
+	required bool hello = 1 [default = true]; /* is that a client hello? */
+	optional bytes data = 2; /* the client hello data */
+}
+
+/* SESSION_INFO */
+message session_info_msg
+{
+	required string tls_ciphersuite = 1;
+	required string dtls_ciphersuite = 2;
+	required string user_agent = 3;
+	optional string cstp_compr = 4;
+	optional string dtls_compr = 5;
+}
+
+/* WORKER_BAN_IP: sent from worker to main */
+message ban_ip_msg
+{
+	required string ip = 1;
+	required uint32 score = 2;
+}
+
+message ban_ip_reply_msg
+{
+	/* whether to disconnect the user */
+	required AUTH_REP reply = 1;
+}
+
+/* Messages to and from the security module */
+
+/*
+ * == Auth with username/password ==
+ *
+ *   sec-mod                        worker
+ *                    <------     AUTH_INIT (username)
+ * AUTH_REP(MSG,SID)  ------>
+ *                    <------     AUTH_CONT (SID,password)
+ *                       .
+ *                       .
+ *                       .
+ * AUTH_REP(OK,COOKIE)------>
+ *
+ *
+ * The authentication is now identical for openconnect and
+ * legacy cisco anyconnect clients. That is because the
+ * authentication method identifies the user using the SID.
+ *
+ */
+
+/* SEC_AUTH_INIT */
+message sec_auth_init_msg
+{
+	required bool tls_auth_ok = 2 [default = false];
+	required string user_name = 3;
+	optional string group_name = 4; /* selected group name */
+	optional string cert_user_name = 5;
+	repeated string cert_group_names = 6;
+	optional string hostname = 7;
+	required string ip = 8;
+	required uint32 auth_type = 9 [default = 0];
+}
+
+/* SEC_AUTH_CONT */
+message sec_auth_cont_msg
+{
+	required string password = 2;
+	required bytes sid = 3;
+	required string ip = 4;
+}
+
+/* SEC_AUTH_REP */
+message sec_auth_reply_msg
+{
+	required AUTH_REP reply = 1;
+	optional bytes cookie = 2;
+	optional string user_name = 3;
+	optional string msg = 4;
+	optional bytes dtls_session_id = 5;
+	optional bytes sid = 6;
+}
+
+/* SEC_SIGN/DECRYPT */
+message sec_op_msg
+{
+	optional uint32 key_idx = 1;
+	required bytes data = 2;
+}
+
+/* Not a real message, but the cookie */
+message cookie
+{
+	required string username = 1;
+	required string groupname = 2;
+	required string hostname = 3;
+	required string ip = 4;
+	required uint32 expiration = 6;
+	required uint32 ipv4_seed = 7;
+	required bytes sid = 8;
+	required bool tls_auth_ok = 9;
+}
+
+/*
+ * == Session Termination ==
+ *
+ *   main                           sec-mod
+ * SESSION_OPEN/CLOSE   ------>
+ *                      <------     SESSION_REPLY
+ */
+
+/* SEC_SESSION_CLOSE */
+message sec_auth_session_msg
+{
+	required bytes sid = 1;
+	/* on open */
+	optional bytes cookie = 2;
+	/* on close */
+	optional uint32 uptime = 3;
+	optional uint64 bytes_in = 4;
+	optional uint64 bytes_out = 5;
+}
+
+message sec_auth_session_reply_msg
+{
+	required AUTH_REP reply = 1;
+
+	/* sup - config */
+	optional bool no_udp = 10;
+	optional bool deny_roaming = 11;
+	repeated string routes = 13;
+	repeated string iroutes = 14;
+	repeated string dns = 15;
+	repeated string nbns = 16;
+	optional string ipv4_net = 17;
+	optional string ipv4_netmask = 18;
+	optional string ipv6_net = 19;
+	optional uint32 ipv6_prefix = 20;
+	optional string cgroup = 21;
+	optional string xml_config_file = 22;
+	optional uint32 rx_per_sec = 23;
+	optional uint32 tx_per_sec = 24;
+	optional uint32 net_priority = 25;
+	optional string explicit_ipv4 = 26;
+	optional string explicit_ipv6 = 27;
+	repeated string no_routes = 28;
+}
+
+/* SEC_BAN_IP: sent from sec-mod to main */
+/* same as: ban_ip_msg */
